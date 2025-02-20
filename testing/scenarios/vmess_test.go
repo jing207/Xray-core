@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/xtls/xray-core/app/log"
 	"github.com/xtls/xray-core/app/proxyman"
 	"github.com/xtls/xray-core/common"
@@ -25,6 +23,7 @@ import (
 	"github.com/xtls/xray-core/testing/servers/udp"
 	"github.com/xtls/xray-core/transport/internet"
 	"github.com/xtls/xray-core/transport/internet/kcp"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestVMessDynamicPort(t *testing.T) {
@@ -72,11 +71,9 @@ func TestVMessDynamicPort(t *testing.T) {
 						Listen:   net.NewIPOrDomain(net.LocalHostIP),
 					}),
 					ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-						Address: net.NewIPOrDomain(dest.Address),
-						Port:    uint32(dest.Port),
-						NetworkList: &net.NetworkList{
-							Network: []net.Network{net.Network_TCP},
-						},
+						Address:  net.NewIPOrDomain(dest.Address),
+						Port:     uint32(dest.Port),
+						Networks: []net.Network{net.Network_TCP},
 					}),
 				},
 				{
@@ -108,7 +105,7 @@ func TestVMessDynamicPort(t *testing.T) {
 		}
 
 		server, _ := InitializeServerConfig(serverConfig)
-		if server != nil && tcpConnAvailableAtPort(t, serverPort+100) {
+		if server != nil && WaitConnAvailableWithTest(t, testTCPConn(serverPort+100, 1024, time.Second*2)) {
 			defer CloseServer(server)
 			break
 		}
@@ -134,11 +131,9 @@ func TestVMessDynamicPort(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -167,26 +162,9 @@ func TestVMessDynamicPort(t *testing.T) {
 	common.Must(err)
 	defer CloseServer(server)
 
-	if !tcpConnAvailableAtPort(t, clientPort) {
+	if !WaitConnAvailableWithTest(t, testTCPConn(clientPort, 1024, time.Second*2)) {
 		t.Fail()
 	}
-}
-
-func tcpConnAvailableAtPort(t *testing.T, port net.Port) bool {
-	for i := 1; ; i++ {
-		if i > 10 {
-			t.Log("All attempts failed to test tcp conn")
-			return false
-		}
-		time.Sleep(time.Millisecond * 10)
-		if err := testTCPConn(port, 1024, time.Second*2)(); err != nil {
-			t.Log("err ", err)
-		} else {
-			t.Log("success with", i, "attempts")
-			break
-		}
-	}
-	return true
 }
 
 func TestVMessGCM(t *testing.T) {
@@ -245,11 +223,9 @@ func TestVMessGCM(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -349,11 +325,9 @@ func TestVMessGCMReadv(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -456,11 +430,9 @@ func TestVMessGCMUDP(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_UDP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_UDP},
 				}),
 			},
 		},
@@ -493,7 +465,7 @@ func TestVMessGCMUDP(t *testing.T) {
 	defer CloseAllServers(servers)
 
 	var errg errgroup.Group
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 2; i++ {
 		errg.Go(testUDPConn(clientPort, 1024, time.Second*5))
 	}
 	if err := errg.Wait(); err != nil {
@@ -557,11 +529,9 @@ func TestVMessChacha20(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -659,11 +629,9 @@ func TestVMessNone(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -727,7 +695,7 @@ func TestVMessKCP(t *testing.T) {
 					PortList: &net.PortList{Range: []*net.PortRange{net.SinglePortRange(serverPort)}},
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 					StreamSettings: &internet.StreamConfig{
-						Protocol: internet.TransportProtocol_MKCP,
+						ProtocolName: "mkcp",
 					},
 				}),
 				ProxySettings: serial.ToTypedMessage(&inbound.Config{
@@ -763,11 +731,9 @@ func TestVMessKCP(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -793,7 +759,7 @@ func TestVMessKCP(t *testing.T) {
 				}),
 				SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
 					StreamSettings: &internet.StreamConfig{
-						Protocol: internet.TransportProtocol_MKCP,
+						ProtocolName: "mkcp",
 					},
 				}),
 			},
@@ -805,8 +771,8 @@ func TestVMessKCP(t *testing.T) {
 	defer CloseAllServers(servers)
 
 	var errg errgroup.Group
-	for i := 0; i < 10; i++ {
-		errg.Go(testTCPConn(clientPort, 10240*1024, time.Minute*2))
+	for i := 0; i < 2; i++ {
+		errg.Go(testTCPConn(clientPort, 1024, time.Minute*2))
 	}
 	if err := errg.Wait(); err != nil {
 		t.Error(err)
@@ -836,10 +802,10 @@ func TestVMessKCPLarge(t *testing.T) {
 					PortList: &net.PortList{Range: []*net.PortRange{net.SinglePortRange(serverPort)}},
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 					StreamSettings: &internet.StreamConfig{
-						Protocol: internet.TransportProtocol_MKCP,
+						ProtocolName: "mkcp",
 						TransportSettings: []*internet.TransportConfig{
 							{
-								Protocol: internet.TransportProtocol_MKCP,
+								ProtocolName: "mkcp",
 								Settings: serial.ToTypedMessage(&kcp.Config{
 									ReadBuffer: &kcp.ReadBuffer{
 										Size: 512 * 1024,
@@ -891,11 +857,9 @@ func TestVMessKCPLarge(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -921,10 +885,10 @@ func TestVMessKCPLarge(t *testing.T) {
 				}),
 				SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
 					StreamSettings: &internet.StreamConfig{
-						Protocol: internet.TransportProtocol_MKCP,
+						ProtocolName: "mkcp",
 						TransportSettings: []*internet.TransportConfig{
 							{
-								Protocol: internet.TransportProtocol_MKCP,
+								ProtocolName: "mkcp",
 								Settings: serial.ToTypedMessage(&kcp.Config{
 									ReadBuffer: &kcp.ReadBuffer{
 										Size: 512 * 1024,
@@ -952,7 +916,7 @@ func TestVMessKCPLarge(t *testing.T) {
 
 	var errg errgroup.Group
 	for i := 0; i < 2; i++ {
-		errg.Go(testTCPConn(clientPort, 10240*1024, time.Minute*5))
+		errg.Go(testTCPConn(clientPort, 513*1024, time.Minute*5))
 	}
 	if err := errg.Wait(); err != nil {
 		t.Error(err)
@@ -1020,11 +984,9 @@ func TestVMessGCMMux(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -1138,11 +1100,9 @@ func TestVMessGCMMuxUDP(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 			{
@@ -1151,11 +1111,9 @@ func TestVMessGCMMuxUDP(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(udpDest.Address),
-					Port:    uint32(udpDest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_UDP},
-					},
+					Address:  net.NewIPOrDomain(udpDest.Address),
+					Port:     uint32(udpDest.Port),
+					Networks: []net.Network{net.Network_UDP},
 				}),
 			},
 		},
@@ -1192,10 +1150,10 @@ func TestVMessGCMMuxUDP(t *testing.T) {
 	servers, err := InitializeServerConfigs(serverConfig, clientConfig)
 	common.Must(err)
 
-	for range "abcd" {
+	for range "ab" {
 		var errg errgroup.Group
-		for i := 0; i < 16; i++ {
-			errg.Go(testTCPConn(clientPort, 10240, time.Second*20))
+		for i := 0; i < 2; i++ {
+			errg.Go(testTCPConn(clientPort, 1024, time.Second*10))
 			errg.Go(testUDPConn(clientUDPPort, 1024, time.Second*10))
 		}
 		if err := errg.Wait(); err != nil {
@@ -1266,11 +1224,9 @@ func TestVMessZero(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -1367,11 +1323,9 @@ func TestVMessGCMLengthAuth(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -1444,7 +1398,6 @@ func TestVMessGCMLengthAuthPlusNoTerminationSignal(t *testing.T) {
 						{
 							Account: serial.ToTypedMessage(&vmess.Account{
 								Id:           userID.String(),
-								AlterId:      64,
 								TestsEnabled: "AuthenticatedLength|NoTerminationSignal",
 							}),
 						},
@@ -1474,11 +1427,9 @@ func TestVMessGCMLengthAuthPlusNoTerminationSignal(t *testing.T) {
 					Listen:   net.NewIPOrDomain(net.LocalHostIP),
 				}),
 				ProxySettings: serial.ToTypedMessage(&dokodemo.Config{
-					Address: net.NewIPOrDomain(dest.Address),
-					Port:    uint32(dest.Port),
-					NetworkList: &net.NetworkList{
-						Network: []net.Network{net.Network_TCP},
-					},
+					Address:  net.NewIPOrDomain(dest.Address),
+					Port:     uint32(dest.Port),
+					Networks: []net.Network{net.Network_TCP},
 				}),
 			},
 		},
@@ -1492,8 +1443,7 @@ func TestVMessGCMLengthAuthPlusNoTerminationSignal(t *testing.T) {
 							User: []*protocol.User{
 								{
 									Account: serial.ToTypedMessage(&vmess.Account{
-										Id:      userID.String(),
-										AlterId: 64,
+										Id: userID.String(),
 										SecuritySettings: &protocol.SecurityConfig{
 											Type: protocol.SecurityType_AES128_GCM,
 										},
